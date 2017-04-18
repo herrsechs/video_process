@@ -173,6 +173,35 @@ def batchResizeImage(path):
             cv2.imwrite(path + '/' + filename, resized_image)
 
 
+def deleteFiles(path, key):
+    for filename in os.listdir(path):
+        if key in filename:
+            os.remove(path + '/' + filename)
+
+
+def findMissingLines(path1, path2, output):
+    f1 = open(path1, 'r')
+    f2 = open(path2, 'r')
+    f1_content = []
+    f2_content = []
+
+    for line in f1:
+        f1_content.append(line.strip('\n'))
+    for line in f2:
+        f2_content.append(line.split('_')[0])
+
+    missing = []
+    for line in f1_content:
+        if line not in f2_content:
+            missing.append(line + '\n')
+
+    out = open(output, 'w')
+    out.writelines(missing)
+    out.close()
+    f2.close()
+    f1.close()
+
+
 def main():
     action = sys.argv[1]
     video_path = sys.argv[2]
@@ -198,7 +227,11 @@ def main():
 
 
 if __name__ == '__main__':
-    # batchMakeMotionProfile('D:/Research_IMPORTANT/video/output/front', offset=150)
-    extractFilesName('D:/Research_IMPORTANT/video/output/front/motion150',
-                     'D:/Research_IMPORTANT/video/output/front/filenames150.txt')
+    # batchMakeMotionProfile('D:/Research_IMPORTANT/video/output/feedback', offset=150)
+    extractFilesName('D:/Research_IMPORTANT/video/output/feedback/motion50',
+                      'D:/Research_IMPORTANT/video/output/feedback/filenames50.txt')
     # batchResizeImage('D:/Research_IMPORTANT/video/output/front/motion150')
+    # deleteFiles('D:/Research_IMPORTANT/video/output/feedback', 'rear')
+    # findMissingLines('D:/Research_IMPORTANT/video/output/filename1.txt',
+    #                  'D:/Research_IMPORTANT/video/output/filenames0.txt',
+    #                  'D:/Research_IMPORTANT/video/output/missing.txt')
