@@ -156,11 +156,11 @@ def walkDir(root):
 function_maps = {'-r': readFrames, '-c': cropFrames}
 
 
-def extractFilesName(file_path, output_path):
+def extractFilesName(file_path, output_path, key):
     f = open(output_path, 'w')
     for filename in os.listdir(file_path):
-        if '.jpg' in filename:
-            f.write(filename + '\n')
+        if key in filename:
+            f.write(filename.split('-')[0] + '\n')
 
     f.close()
 
@@ -171,6 +171,14 @@ def batchResizeImage(path):
             img = cv2.imread(path + '/' + filename)
             resized_image = cv2.resize(img, (256, 256))
             cv2.imwrite(path + '/' + filename, resized_image)
+
+
+def batchRGB2Gray(path):
+    for filename in os.listdir(path):
+        if '.jpg' in filename:
+            img = cv2.imread(path + '/' + filename)
+            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            cv2.imwrite(path + '/' + filename, gray)
 
 
 def deleteFiles(path, key):
@@ -202,6 +210,22 @@ def findMissingLines(path1, path2, output):
     f1.close()
 
 
+def extractBeforeImg(src, target):
+    for filename in os.listdir(src):
+        if '.jpg' in filename:
+            img = cv2.imread(src + '/' + filename)
+            img = img[0:240, :]
+            cv2.imwrite(target + '/' + filename, img)
+
+
+def extractAfterImg(src, target):
+    for filename in os.listdir(src):
+        if '.jpg' in filename:
+            img = cv2.imread(src + '/' + filename)
+            img = img[-160:, :]
+            cv2.imwrite(target + '/' + filename, img)
+
+
 def main():
     action = sys.argv[1]
     video_path = sys.argv[2]
@@ -228,10 +252,17 @@ def main():
 
 if __name__ == '__main__':
     # batchMakeMotionProfile('D:/Research_IMPORTANT/video/output/feedback', offset=150)
-    extractFilesName('D:/Research_IMPORTANT/video/output/feedback/motion50',
-                      'D:/Research_IMPORTANT/video/output/feedback/filenames50.txt')
-    # batchResizeImage('D:/Research_IMPORTANT/video/output/front/motion150')
+    # extractFilesName('D:/Research_IMPORTANT/video/output/feedback/motion50',
+    #                  'D:/Research_IMPORTANT/video/output/feedback/filenames50.txt')
+    # batchResizeImage('D:/Research_IMPORTANT/video/output/train')
     # deleteFiles('D:/Research_IMPORTANT/video/output/feedback', 'rear')
     # findMissingLines('D:/Research_IMPORTANT/video/output/filename1.txt',
     #                  'D:/Research_IMPORTANT/video/output/filenames0.txt',
     #                  'D:/Research_IMPORTANT/video/output/missing.txt')
+    # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_test')
+    # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_train')
+    # extractBeforeImg('D:/Research_IMPORTANT/video/output/feedback/motion50',
+    #                 'D:/Research_IMPORTANT/video/output/beforeimg')
+    extractFilesName('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA',
+                     'D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA/event.txt',
+                     '-')
