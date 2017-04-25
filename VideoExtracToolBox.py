@@ -160,7 +160,8 @@ def extractFilesName(file_path, output_path, key):
     f = open(output_path, 'w')
     for filename in os.listdir(file_path):
         if key in filename:
-            f.write(filename.split('-')[0] + '\n')
+            env_num = filename.split('.')[0]
+            f.write(env_num + '\n')
 
     f.close()
 
@@ -196,7 +197,7 @@ def findMissingLines(path1, path2, output):
     for line in f1:
         f1_content.append(line.strip('\n'))
     for line in f2:
-        f2_content.append(line.split('_')[0])
+        f2_content.append(line.strip('\n'))
 
     missing = []
     for line in f1_content:
@@ -256,13 +257,13 @@ if __name__ == '__main__':
     #                  'D:/Research_IMPORTANT/video/output/feedback/filenames50.txt')
     # batchResizeImage('D:/Research_IMPORTANT/video/output/train')
     # deleteFiles('D:/Research_IMPORTANT/video/output/feedback', 'rear')
-    # findMissingLines('D:/Research_IMPORTANT/video/output/filename1.txt',
-    #                  'D:/Research_IMPORTANT/video/output/filenames0.txt',
-    #                  'D:/Research_IMPORTANT/video/output/missing.txt')
+    findMissingLines('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA/env_num.txt',
+                     'D:/Research_IMPORTANT/video/output/speed_event.txt',
+                     'D:/Research_IMPORTANT/video/output/missing.txt')
     # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_test')
     # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_train')
     # extractBeforeImg('D:/Research_IMPORTANT/video/output/feedback/motion50',
     #                 'D:/Research_IMPORTANT/video/output/beforeimg')
-    extractFilesName('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA',
-                     'D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA/event.txt',
-                     '-')
+    # extractFilesName('D:/Research_IMPORTANT/video/output/speed',
+    #                  'D:/Research_IMPORTANT/video/output/speed_event.txt',
+    #                  '.txt')
