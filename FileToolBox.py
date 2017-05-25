@@ -4,6 +4,33 @@ import sys
 import shutil
 import xlrd
 import xlwt
+import numpy as np
+
+def match_level(road_dict, address):
+    for key, val in road_dict.items():
+        if key in address:
+            return val
+
+
+def extract_road_level(road_level_path, address_path, target_path):
+    rf = open(road_level_path)
+    d = dict()
+    for line in rf.readlines():
+        arr = line.split('\t')
+        if len(arr[0]) > 0:
+            d[arr[0]] = arr[1]
+    rf.close()
+
+    af = open(address_path)
+    out = open(target_path, 'w')
+    for line in af.readlines():
+        arr = line.split(',')
+        level = match_level(d, arr[1])
+        if level is None:
+            level = '无\n'
+        out.write(arr[0] + '  ' + level)
+    af.close()
+    out.close()
 
 
 def move_files(name_list, src_path, target_path):
@@ -108,20 +135,45 @@ def change_label(src, target, old, new):
     f.close()
     out.close()
 
+
+def parse_pred(label_path, pred_path):
+    table = np.zeros((3, 3))
+    label_file = open(label_path, 'r')
+    pred_file = open(pred_path, 'r')
+    label = dict()
+    for line in label_file.readlines():
+        lines = line.split()
+        label[lines[0]] = lines[1]
+
+    for line in pred_file.readlines():
+        lines = line.split()
+        if lines[0] not in label:
+            continue
+        col = int(lines[1])
+        row = int(label[lines[0]])
+        table[row, col] = table[row, col] + 1
+
+    print table
+    print (table[0, 0] + table[1, 1] + table[2, 2]) / np.sum(table)
+
 if __name__ == '__main__':
     # move_files('D:/Research_IMPORTANT/video/output/event.txt',
     #           'D:/Research_IMPORTANT/data/video/unclassified',
     #           'D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA1')
     # trim_filename('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA1')
-    # write_excel_file('D:/Research_IMPORTANT/video/output/lat_force',
-    #                  'D:/Research_IMPORTANT/video/output/lat_force.xls',
-    #                  'Lateral force')
+    # write_excel_file('D:/Research_IMPORTANT/video/output/direction',
+    #                  'D:/Research_IMPORTANT/video/output/direction.xls',
+    #                  'Direction')
     # extract_gps_data('D:/Research_IMPORTANT/video/output/gps',
     #                  'D:/Research_IMPORTANT/video/output/gps_lon',
     #                  'D:/Research_IMPORTANT/video/output/gps_lat')
     # extract_force_data('D:/Research_IMPORTANT/video/output/force',
     #                    'D:/Research_IMPORTANT/video/output/fwd_force',
     #                    'D:/Research_IMPORTANT/video/output/lat_force')
-    change_label('D:/Research_IMPORTANT/video/labels/3label_val.tmp1.txt',
-                 'D:/Research_IMPORTANT/video/labels/3label_val.txt',
-                 '3', '2')
+    # change_label('D:/Research_IMPORTANT/video/labels/3label_val.tmp1.txt',
+    #              'D:/Research_IMPORTANT/video/labels/3label_val.txt',
+    #              '3', '2')
+    # extract_road_level('D:/Research_IMPORTANT/video/roadlevel/road.txt',
+    #                    'D:/Research_IMPORTANT/video/output/address.txt',
+    #                    'D:/Research_IMPORTANT/video/output/road_level.txt')
+    parse_pred('D:/bishe/paper/experiment/val.txt', 'D:/bishe/paper/experiment/pred.txt')

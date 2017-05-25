@@ -21,9 +21,9 @@ SPEED_L = 980
 SPEED_R = 1220
 
 
-def extractText(video, path, video_name):
+def extract_text(video, video_name):
     number = 1
-    while(1):
+    while 1:
         ret, frame = video.read()
         if ret is True:
             print 'Extract ' + str(number) + 'th frame...'
@@ -156,13 +156,12 @@ def walkDir(root):
 function_maps = {'-r': readFrames, '-c': cropFrames}
 
 
-def extractFilesName(file_path, output_path, key):
+def extract_files_name(file_path, output_path, key):
     f = open(output_path, 'w')
     for filename in os.listdir(file_path):
         if key in filename:
             env_num = filename.split('.')[0]
             f.write(env_num + '\n')
-
     f.close()
 
 
@@ -227,6 +226,18 @@ def extractAfterImg(src, target):
             cv2.imwrite(target + '/' + filename, img)
 
 
+def blur_image(src):
+    img = cv2.imread(src)
+    res = cv2.medianBlur(img, 21)
+    cv2.imwrite(src, res)
+
+
+def batch_blur_image(root):
+    for filename in os.listdir(root):
+        if '.jpg' in filename:
+            blur_image(root + '/' + filename)
+
+
 def main():
     action = sys.argv[1]
     video_path = sys.argv[2]
@@ -257,9 +268,9 @@ if __name__ == '__main__':
     #                  'D:/Research_IMPORTANT/video/output/feedback/filenames50.txt')
     # batchResizeImage('D:/Research_IMPORTANT/video/output/train')
     # deleteFiles('D:/Research_IMPORTANT/video/output/feedback', 'rear')
-    findMissingLines('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA/env_num.txt',
-                     'D:/Research_IMPORTANT/video/output/speed_event.txt',
-                     'D:/Research_IMPORTANT/video/output/missing.txt')
+    # findMissingLines('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA/env_num.txt',
+    #                  'D:/Research_IMPORTANT/video/output/speed_event.txt',
+    #                  'D:/Research_IMPORTANT/video/output/missing.txt')
     # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_test')
     # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_train')
     # extractBeforeImg('D:/Research_IMPORTANT/video/output/feedback/motion50',
@@ -267,3 +278,4 @@ if __name__ == '__main__':
     # extractFilesName('D:/Research_IMPORTANT/video/output/speed',
     #                  'D:/Research_IMPORTANT/video/output/speed_event.txt',
     #                  '.txt')
+    batch_blur_image('D:/Research_IMPORTANT/video/output/test')
