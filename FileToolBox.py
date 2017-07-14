@@ -5,6 +5,32 @@ import shutil
 import xlrd
 import xlwt
 import numpy as np
+import re
+
+
+def extract_file_name(path, output, key_word):
+    f = open(output, 'w')
+    for file_name in os.listdir(path):
+        if key_word in file_name:
+            f.write(file_name + '\n')
+
+
+def extract_event_number(path, output):
+    num = 0
+    f = open(output, 'w')
+    for parent, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            if 'Event' in filename:
+                num += 1
+                name = filename.split('Event')[1]
+                name = name.split('.')[0]
+                p = r'[0-9]+'
+                pattern = re.compile(p)
+                name = pattern.findall(name)[0]
+
+                f.write(name + "\n")
+    print num
+
 
 def match_level(road_dict, address):
     for key, val in road_dict.items():
@@ -156,7 +182,123 @@ def parse_pred(label_path, pred_path):
     print table
     print (table[0, 0] + table[1, 1] + table[2, 2]) / np.sum(table)
 
+
+def matching_label(name_list_path, label_path, output):
+    names = open(name_list_path, 'r')
+    label_file = open(label_path, 'r')
+    out = open(output, 'w')
+    label_dict = dict()
+    for line in label_file.readlines():
+        label = line.split(' ')[1]
+        number = line.split('_')[0].strip('Event')
+        label_dict[number] = label
+
+    for line in names.readlines():
+        name = line.split('.')[0]
+        if name not in label_dict:
+            print '%s is not found' % name
+            continue
+        out.write(line.strip('\n') + ' ' + label_dict[name])
+
+
+def read_risk_level(src, output):
+    src_f = open(src, 'r')
+    out_f = open(output, 'w')
+    for line in src_f.readlines():
+        if 'Near Collision' in line or 'Possible Collision' in line:
+            out_f.write('1\n')
+        elif 'Collision' in line:
+            out_f.write('2\n')
+        else:
+            out_f.write('0\n')
+
+
+import xml.dom.minidom as dom
+
+
+def travel_xml(path):
+    d = dom.parse(path)
+    root = d.documentElement
+
+    obj_list = root.getElementsByTagName('object')
+    box_list = []
+    for obj in obj_list:
+        name_node = obj.getElementsByTagName('name')[0]
+        name = name_node.childNodes[0].data
+        bndbox = obj.getElementsByTagName('bndbox')[0]
+        xmin = bndbox.getElementsByTagName('xmin')[0].childNodes[0].data
+        ymin = bndbox.getElementsByTagName('ymin')[0].childNodes[0].data
+        xmax = bndbox.getElementsByTagName('xmax')[0].childNodes[0].data
+        ymax = bndbox.getElementsByTagName('ymax')[0].childNodes[0].data
+        box_list.append([name, int(xmin), int(ymin), int(xmax), int(ymax)])
+    return box_list
+
+
+def extract_horizon(src, output):
+    f = open(output, 'w')
+    for parent, dirnames, filenames in os.walk(src):
+        names = []
+        horizon = None
+        for filename in filenames:
+            if 'Event' in filename:
+                name = filename.split('Event')[1]
+                name = name.split('.')[0]
+                p = r'[0-9]+'
+                pattern = re.compile(p)
+                name = pattern.findall(name)[0]
+                names.append(name)
+
+            if '.jpg' in filename and 'horizon' in filename and horizon is None:
+                print parent + ' ' + filename
+                horizon = filename.split(',')[1][0:3]
+
+        for n in names:
+            if horizon is None:
+                print 'No horizon file exists in %s ' % parent
+                break
+            f.write(n + ' ' + horizon + '\n')
+
+
+def match_label(src_path, label_path, output):
+    """
+    
+    :param src_path: video path 
+    :param label_path: label file path
+    :param output: video names and labels 
+    :return: 
+    """
+    label_f = open(label_path, 'r')
+    out_f = open(output, 'w')
+    label_dict = {}
+    for line in label_f.readlines():
+        lines = line.split(' ')
+        label_dict[lines[0]] = lines[1]
+
+    for file_name in os.listdir(src_path):
+        evn = file_name.strip('.jpg')
+        if evn not in label_dict:
+            print '%s is not in the label file.' % evn
+            continue
+        out_f.write(file_name + ' ' + label_dict[evn])
+
+
+def move_file(src, out):
+    for parent, dirnames, filenames in os.walk(src):
+        for filename in filenames:
+            if '.dce' in filename and 'DELETE' not in filename:
+                shutil.copyfile(parent + '/' + filename, out + '/' + filename)
+
+
 if __name__ == '__main__':
+    # move_file('E:/video/group/group3/feedback/2015.6.1-2015.8.23', 'E:/video/dce')
+    # match_label('E:/video/merge/stitch/', 'E:/video/merge/label.txt', 'E:/video/merge/stitch_label.txt')
+    # extract_horizon('E:/video/group/group3', 'E:/video/group/group3/horizon.txt')
+    travel_xml('D:/PedestrianDetection/xml/xml/batch1/FILE0006/FILE0006MOV65.xml')
+    # read_risk_level('D:/Research_IMPORTANT/data/risk.txt',
+    #                 'D:/Research_IMPORTANT/data/risk_level.txt')
+    # matching_label('D:/Research_IMPORTANT/video/feedback/output_number.txt',
+    #                'D:/Research_IMPORTANT/video/output/train_val.txt',
+    #                'D:/Research_IMPORTANT/video/feedback/train_val.txt')
     # move_files('D:/Research_IMPORTANT/video/output/event.txt',
     #           'D:/Research_IMPORTANT/data/video/unclassified',
     #           'D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA1')
@@ -176,4 +318,7 @@ if __name__ == '__main__':
     # extract_road_level('D:/Research_IMPORTANT/video/roadlevel/road.txt',
     #                    'D:/Research_IMPORTANT/video/output/address.txt',
     #                    'D:/Research_IMPORTANT/video/output/road_level.txt')
-    parse_pred('D:/bishe/paper/experiment/val.txt', 'D:/bishe/paper/experiment/pred.txt')
+    # parse_pred('D:/bishe/paper/experiment/val.txt', 'D:/bishe/paper/experiment/pred.txt')
+    # extract_event_number('D:/Research_IMPORTANT/video/group', 'D:/Research_IMPORTANT/video/evn.txt')
+    # extract_file_name('D:/Research_IMPORTANT/video/feedback/merge/merge',
+    #                   'D:/Research_IMPORTANT/video/feedback/output_number.txt', '.jpg')
