@@ -550,12 +550,52 @@ def crop_pedestrian_with_xml(xml_path, img_path, out_path, same_ratio=False):
             i += 1
 
 
+def crop_ped_background(xml_path, img_path, out_path):
+    """
+    
+    :param xml_path: 
+    :param img_path: 
+    :param out_path: 
+    :return: 
+    """
+    if not os.path.exists(out_path):
+        os.mkdir(out_path)
+
+    for file_name in os.listdir(xml_path):
+        box_list = travel_xml(xml_path + '/' + file_name)
+        names = file_name.split('.')[0]
+        names = names.split('MOV')
+        img_name = names[0] + '_frame_' + names[1] + '.jpg'
+        img = cv2.imread(img_path + '/' + img_name)
+
+        i = 0
+        box = box_list[0]
+        ped_xmin, ymin, ped_xmax, ymax = box[1:5]
+        width = ymax - ymin
+        xmin = 1
+        xmax = int(xmin + 0.7 * width)
+        while 1:
+            if xmax >= img.shape[1]:
+                break
+            elif ped_xmin < xmin < ped_xmax:
+                xmin += int(0.7 * width)
+                xmax += int(0.7 * width)
+                continue
+
+            bg_img = img[ymin:ymax, xmin:xmax]
+            cv2.imwrite(out_path + '/' + names[0] + names[1] + str(i) + '.jpg', bg_img)
+            i += 1
+            xmin += int(0.7 * width)
+            xmax += int(0.7 * width)
+
+
 if __name__ == '__main__':
-    for file_name in os.listdir('E:/ped_data/xml/batch1'):
-        num = file_name.strip('FILE')
-        crop_pedestrian_with_xml('D:/PedestrianDetection/xml/xml/batch1/FILE' + num,
-                                 'E:/ped_data/frames/FILE' + num,
-                                 'E:/ped_data/pimg_same_ratio/batch1/FILE' + num, True)
+    for sub_folder in os.listdir('E:/ped_data/background/batch1'):
+        add_file_name_suffix('E:/ped_data/background/batch1/' + sub_folder, 'bg')
+        # num = file_name.strip('FILE')
+        # crop_ped_background('D:/PedestrianDetection/xml/xml/batch1/FILE' + num,
+        #                          'E:/ped_data/frames/FILE' + num,
+        #                          'E:/ped_data/background/batch1/FILE' + num)
     # num = '0006'
     # video = cv2.VideoCapture('E:/ped_data/avi/FILE' + num + '.avi')
     # readFrames(video, 'E:/ped_data/frames/FILE' + num, 'FILE' + num)
