@@ -1,0 +1,53 @@
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email.utils import COMMASPACE, formatdate
+from email import encoders
+import os
+
+
+def send_mail(server, fro, to, subject, text, files=[]):
+    """
+    
+    :param server: dict, ['name'], ['user'], ['passwd'] 
+    :param fro: 
+    :param to: 
+    :param subject: 
+    :param text: 
+    :param files: 
+    :return: 
+    """
+    assert type(server) == dict
+    assert type(to) == list
+    assert type(files) == list
+
+    msg = MIMEMultipart()
+    msg['From'] = fro
+    msg['Subject'] = subject
+    msg['To'] = COMMASPACE.join(to)
+    msg['Date'] = formatdate(localtime=True)
+    msg.attach(MIMEText(text, 'plain', 'utf-8'))
+
+    for file in files:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(open(file, 'rb'.read()))
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(file))
+        msg.attach(part)
+
+    import smtplib
+    smtp = smtplib.SMTP_SSL(server['name'], 465)
+    smtp.login(server['user'], server['passwd'])
+    smtp.sendmail(fro, to, msg.as_string())
+    smtp.close()
+
+
+if __name__ == '__main__':
+    """
+    serve = dict()
+    serve['name'] = 'smtp.qq.com'
+    serve['user'] = '1156931594@qq.com'
+    serve['passwd'] = 'koqcpxlbfktbggef'
+    send_mail(serve, 'herrsechs@foxmail.com', ['herrsechs@foxmail.com'], 'TEST2',
+              'This email is sent from your lab machine')
+    """
