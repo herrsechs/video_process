@@ -6,6 +6,7 @@ import os
 def get_sub_clip(src, out, time):
     video = ed.VideoFileClip(src)
     start_t = time - 20 if time > 20 else 1
+
     end_t = time + 10 if time < video.duration - 10 else video.duration
     clip = video.subclip(start_t, end_t)
     result = ed.CompositeVideoClip([clip, ])

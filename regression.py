@@ -2,8 +2,11 @@ from sklearn.datasets.base import Bunch
 from pandas import read_csv
 from sklearn import preprocessing, metrics
 from sklearn.feature_selection import chi2
+from sklearn import svm
+import numpy as np
 import mord
-CSV_PATH = 'D:/bishe/DataProcessing/data_after.csv'
+import matplotlib.pyplot as plt
+CSV_PATH = 'E:/video/kinematic/vector.csv'
 
 
 def trim_file(src, target):
@@ -79,45 +82,40 @@ def main_search_thred():
 
     print 'Max accuracy: ' + str(max_accu) + ' threshold: ' + str(max_thred1) + ', ' + str(max_thred2)
 
-if __name__ == '__main__':
-    # trim_file('D:/Research_IMPORTANT/video/output/pred.txt',
-    #           'D:/Research_IMPORTANT/video/output/trimmed_pred.txt')
-    # features = ('weather', 'illumi', 'speed1', 'speed2', 'speed3', 'speed4', 'speed5', 'speed6',
-    #             'fwd1', 'fwd2', 'fwd3', 'fwd4', 'fwd5', 'fwd6', 'fwd7', 'fwd8', 'fwd9', 'fwd10',
-    #             'fwd11', 'fwd12', 'fwd13', 'fwd14', 'fwd15', 'fwd16', 'fwd17', 'fwd18''lat', 'road', 'label')
 
-    # d.loc[:, 'weather'] = preprocessing.scale(d.ix[:, 'weather'])
-    # d.loc[:, 'illumi'] = preprocessing.scale(d.ix[:, 'illumi'])
-    # d.loc[:, 'speed'] = preprocessing.scale(d.ix[:, 'speed'])
-    # d.loc[:, 'fwd'] = preprocessing.scale(d.ix[:, 'fwd'])
-    # d.loc[:, 'lat'] = preprocessing.scale(d.ix[:, 'lat'])
-    # d.loc[:, 'road'] = preprocessing.scale(d.ix[:, 'road'])
-    # le = preprocessing.LabelEncoder()
-    # le.fit(bunch.target)
-    # bunch.target = le.transform(bunch.target)
-    #
-    # d.loc[d.Infl == 'Low', 'Infl'] = 1
-    # d.loc[d.Infl == 'Medium', 'Infl'] = 2
-    # d.loc[d.Infl == 'High', 'Infl'] = 3
-    #
-    # d.loc[d.Cont == 'Low', 'Cont'] = 1
-    # d.loc[d.Cont == 'Medium', 'Cont'] = 2
-    # d.loc[d.Cont == 'High', 'Cont'] = 3
-    #
-    # le = preprocessing.LabelEncoder()
-    # le.fit(d.loc[:, 'Type'])
-    # d.loc[:, 'type_encoded'] = le.transform(d.loc[:, 'Type'])
+def draw_acc_matrix(label, pred, start_idx):
+    """
+    Print accuracy matrix like this:
+    [[ 294.   22.    0.    0.]
+     [  25.  156.    0.    0.]
+     [   2.   21.    7.    0.]
+     [   0.    0.    2.    0.]]
+     
+    :param label: label array [pandas series]
+    :param pred: prediction arrcy [numpy ndarray]
+    :param start_idx: start index of test sample
+    :return: 
+    """
+    acc_matrix = np.zeros((4, 4))
+    for k, v in label.iteritems():
+        num = k - start_idx
+        acc_matrix[v, pred[num]] += 1
+    print acc_matrix
 
+
+def order_logit_regression():
     data = read_csv(CSV_PATH)
-    bunch = Bunch(data=data.iloc[:, 2:-1], target=data.loc[:, 'label'])
+    bunch = Bunch(data=data.iloc[:, 1:-1], target=data.iloc[:, -1])
     d = bunch.data
 
-    trainX, trainY = d.ix[:599, :], bunch.target[:600]
-    testX, testY = d.ix[600:, :], bunch.target[600:]
+    train_len = int(0.75 * d.shape[0])
+    trainX, trainY = d.ix[:train_len-1, :], bunch.target[:train_len]
+    testX, testY = d.ix[train_len:, :], bunch.target[train_len:]
 
-    clf1 = mord.LogisticAT(alpha=0.8)
+    clf1 = mord.LogisticAT(alpha=0.5)
     clf1.fit(trainX, trainY)
     pred = clf1.predict(testX)
+    draw_acc_matrix(testY, pred, train_len)
     print 'Accuracy of LogisticAT: %s' % metrics.accuracy_score(testY, pred)
     print 'Mean absolute error of LogisticAT: %s' % \
           metrics.mean_absolute_error(pred, testY)
@@ -125,6 +123,7 @@ if __name__ == '__main__':
     clf2 = mord.LogisticIT(alpha=0.5)
     clf2.fit(trainX, trainY)
     pred2 = clf2.predict(testX)
+    draw_acc_matrix(testY, pred2, train_len)
     print 'Accuracy of LogisticIT: %s' % metrics.accuracy_score(testY, pred2)
     print 'Mean absolute error of LogisticIT: %s' % \
           metrics.mean_absolute_error(pred2, testY)
@@ -132,7 +131,87 @@ if __name__ == '__main__':
     clf3 = mord.LogisticSE(alpha=0.5)
     clf3.fit(trainX, trainY)
     pred3 = clf3.predict(testX)
+    draw_acc_matrix(testY, pred3, train_len)
     print 'Accuracy of LogisticSE: %s' % metrics.accuracy_score(testY, pred3)
     print 'Mean absolute error of LogisticSE: %s' % \
           metrics.mean_absolute_error(pred3, testY)
 
+
+def svm_classification():
+    data = read_csv(CSV_PATH)
+    bunch = Bunch(data=data.iloc[:, 1:-1], target=data.iloc[:, -1])
+    d = bunch.data
+
+    train_len = int(0.75 * d.shape[0])
+    trainX, trainY = d.ix[:train_len - 1, :], bunch.target[:train_len]
+    testX, testY = d.ix[train_len:, :], bunch.target[train_len:]
+
+    clf = svm.SVC(C=0.5, kernel='rbf', gamma=5, decision_function_shape='ovr')
+    clf.fit(trainX, trainY)
+
+    pred = clf.predict(testX)
+    draw_acc_matrix(testY, pred, train_len)
+    print 'Accuracy of SVM: %s' % metrics.accuracy_score(testY, pred)
+    print 'Mean absolute error of SVM: %s' % \
+           metrics.mean_absolute_error(pred, testY)
+
+
+def acc_plot():
+    d = read_csv(CSV_PATH)
+
+    class3 = d[d.label == 3]
+    class2 = d[d.label == 2]
+    class1 = d[d.label == 1]
+    acc_data3 = class3.loc[:, 'min_acc']
+    acc_data2 = class2.loc[:, 'min_acc']
+    acc_data1 = class1.loc[:, 'min_acc']
+    y3 = acc_data3.ix[:]
+    y2 = acc_data2.ix[:]
+    y1 = acc_data1.ix[:]
+    x1 = np.linspace(0, len(y1)-1, len(y1), dtype=np.int16)
+    x2 = np.linspace(len(y1), len(y1) + len(y2) - 1, len(y2), dtype=np.int16)
+    x3 = np.linspace(len(x2) + len(x1), len(x1) + len(x2) + len(y3) - 1, len(y3), dtype=np.int16)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1, xlim=(0, x3[-1]+10), ylim=(-3, 0.5))
+    ax.plot(x1, y1, 'g+', label='critical incident')
+    ax.plot(x2, y2, 'b+', label='near crash')
+    ax.plot(x3, y3, 'r+', label='crash')
+    plt.legend(loc='lower left')
+    plt.show()
+
+
+def acc_plot2():
+    d = read_csv(CSV_PATH)
+    # d = d[d.label != 0]
+    # d = d.sort_values(by='min_acc')
+    d = d.loc[:, ['min_acc', 'label']]
+    x1, y1, x2, y2, x3, y3, x4, y4 = [], [], [], [], [], [], [], []
+    num = 0
+    for (k, v) in d.iterrows():
+        if int(v['label']) == 0:
+            x1.append(num)
+            y1.append(v['min_acc'])
+        elif int(v['label']) == 1:
+            x2.append(num)
+            y2.append(v['min_acc'])
+        elif int(v['label']) == 2:
+            x3.append(num)
+            y3.append(v['min_acc'])
+        elif int(v['label']) == 3:
+            x4.append(num)
+            y4.append(v['min_acc'])
+        num += 1
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1, xlim=(0, 1530), ylim=(-3, 0.5))
+    ax.plot(x1, y1, 'go', label='non-conflict')
+    ax.plot(x2, y2, 'b.', label='critical incident')
+    ax.plot(x3, y3, 'y*', label='near crash')
+    ax.plot(x4, y4, 'r+', label='crash')
+    plt.legend(loc='lower left')
+    plt.show()
+
+
+if __name__ == '__main__':
+    acc_plot2()

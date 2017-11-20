@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import shutil
 import re
-from FileToolBox import travel_xml
+
 
 VIDEO_PATH = 'video1.avi'
 TOP_H = 510
@@ -97,26 +97,28 @@ def readFrames(video, path, video_name):
     print 'Done! ' + str(number-1) + " frames have been extracted"
 
 
-def crop_frames(video_path, out_path, startY, endY, video_name):
+def crop_frames(video_path, out_path, start_y=0, end_y=0, video_name='video'):
     """
         Crop frames between startY and endY
         Return the number of cropped frames
-    :param video_path: 
-    :param out_path: 
-    :param startY: 
-    :param endY: 
-    :param video_name: 
-    :return: 
+    :param video_path:
+    :param out_path:
+    :param start_y:
+    :param end_y:
+    :param video_name:
+    :return:
     """
     video = cv2.VideoCapture(video_path)
-    frame_width = video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) - 110
+    frame_width = video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
     frame_height = video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
-    area = [int(startY), int(endY), 0, int(frame_width)]
+    if start_y == 0 and end_y == 0:
+        end_y = frame_height
+    area = [int(start_y), int(end_y), 0, int(frame_width)]
     if not os.path.exists(out_path):
         os.mkdir(out_path)
 
     number = 1
-    while (1):
+    while 1:
         ret, frame = video.read()
         if ret is True:
             cv2.imwrite(out_path + '/' + video_name + '_crop_frame_' +
@@ -133,6 +135,16 @@ def crop_frames(video_path, out_path, startY, endY, video_name):
 
 
 def cropFrames(video, unitsize, path, video_name, trim_video=False, offset=0):
+    """
+    
+    :param video: VideoCapture of the video file being processed
+    :param unitsize: 
+    :param path: 
+    :param video_name: 
+    :param trim_video: 
+    :param offset: 
+    :return: 
+    """
     frame_width = video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
     frame_height = video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
     frame_center = frame_height / 2 + offset
@@ -264,11 +276,20 @@ def extract_files_name(file_path, output_path, key):
     f.close()
 
 
-def batch_resize_image(path):
+
+def batch_resize_image_same_ratio(path, ratio):
+    """
+    Resize images to make them in a same height/width ratio
+    :param path: 
+    :param ratio: width/height 
+    :return: 
+    """
     for filename in os.listdir(path):
         if '.jpg' in filename:
             img = cv2.imread(path + '/' + filename)
-            resized_image = cv2.resize(img, (65, 36))
+            height = img.shape[0]
+            width = int(height * ratio)
+            resized_image = cv2.resize(img, (width, height))
             cv2.imwrite(path + '/' + filename, resized_image)
 
 
@@ -442,6 +463,15 @@ def batch_get_merge_motion_by_car_id(src_path, output_path):
 
 
 def batch_get_merge_motion_by_horizon_txt(src_path, output_path, horizon_path):
+    """
+    Example:
+    batch_get_merge_motion_by_horizon_txt('E:/video/total_videos/', 'E:/video/total_motion_profile/',
+                                          'E:/video/group_total_videos/horizon.txt')
+    :param src_path: src folder which contains videos
+    :param output_path: output folder for merge motion images
+    :param horizon_path: path to horizon txt
+    :return: None
+    """
     if not os.path.exists(output_path):
         os.mkdir(output_path)
 
@@ -453,13 +483,13 @@ def batch_get_merge_motion_by_horizon_txt(src_path, output_path, horizon_path):
         horizon_map[evn] = h
 
     for file_name in os.listdir(src_path):
-        if 'Event' not in file_name:
-            print '%s has no event number' % file_name
-            continue
-        evn = file_name.split('.')[0].split('Event')[1]
+        # if 'Event' not in file_name:
+        #     print '%s has no event number' % file_name
+        #     continue
+        # evn = file_name.split('.')[0].split('Event')[1]
         p = r'[0-9]+'
         pattern = re.compile(p)
-        evn = pattern.findall(evn)[0]
+        evn = pattern.findall(file_name)[0]
         if evn not in horizon_map:
             print '%s is not in horizon map' % evn
             continue
@@ -504,12 +534,20 @@ def add_file_name_suffix(path, sfx):
 
 
 def inverse_image(src, out):
+    """
+    Take inverse images under src folder
+    Example:
+    inverse_image('E:/video/motion_profile_data/all', 'E:/video/motion_profile_data/all_inv')
+    :param src: source path of images
+    :param out: output path
+    :return: 
+    """
     for file_name in os.listdir(src):
-        img = cv2.imread(src + '/' + file_name)
+        img = cv2.imread(os.path.join(src, file_name))
         inv_img = 255 - img
         if not os.path.exists(out):
             os.mkdir(out)
-        cv2.imwrite(out + '/' + file_name, inv_img)
+        cv2.imwrite(os.path.join(out, file_name.strip('.jpg') + 'inv.jpg'), inv_img)
 
 
 def merge_motion_from_far_mid_close(close_path, mid_path, far_path, output_path):
@@ -523,122 +561,35 @@ def merge_motion_from_far_mid_close(close_path, mid_path, far_path, output_path)
                      output=output_path + '/' + evn + '.jpg')
 
 
-def crop_pedestrian_with_xml(xml_path, img_path, out_path, same_ratio=False):
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
 
-    for file_name in os.listdir(xml_path):
-        box_list = travel_xml(xml_path + '/' + file_name)
-        names = file_name.split('.')[0]
-        names = names.split('MOV')
-        img_name = names[0] + '_frame_' + names[1] + '.jpg'
-        img = cv2.imread(img_path + '/' + img_name)
-
-        i = 0
-        for box in box_list:
-            xmin, ymin, xmax, ymax = box[1:5]
-            if same_ratio:
-                x_center = xmin + 0.5 * (xmax - xmin)
-                width = ymax - ymin
-                xmin = int(x_center - 0.35 * width)
-                xmax = int(x_center + 0.35 * width)
-                xmin = xmin if xmin > 0 else 1
-                xmax = xmax if xmax < img.shape[1] else img.shape[1] - 1
-
-            pimg = img[ymin:ymax, xmin:xmax]
-            cv2.imwrite(out_path + '/' + names[0] + names[1] + str(i) + '.jpg', pimg)
-            i += 1
-
-
-def crop_ped_background(xml_path, img_path, out_path):
+def generate_label_file(src_path, out, label=0):
     """
     
-    :param xml_path: 
-    :param img_path: 
-    :param out_path: 
+    :param src_path: the source path of the data  
+    :param out: path of the output label file
     :return: 
     """
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
-
-    for file_name in os.listdir(xml_path):
-        box_list = travel_xml(xml_path + '/' + file_name)
-        names = file_name.split('.')[0]
-        names = names.split('MOV')
-        img_name = names[0] + '_frame_' + names[1] + '.jpg'
-        img = cv2.imread(img_path + '/' + img_name)
-
-        i = 0
-        box = box_list[0]
-        ped_xmin, ymin, ped_xmax, ymax = box[1:5]
-        width = ymax - ymin
-        xmin = 1
-        xmax = int(xmin + 0.7 * width)
-        while 1:
-            if xmax >= img.shape[1]:
-                break
-            elif ped_xmin < xmin < ped_xmax:
-                xmin += int(0.7 * width)
-                xmax += int(0.7 * width)
+    out_f = open(out, 'w')
+    for parents, dirnames, filenames in os.walk(src_path):
+        for f in filenames:
+            if '.jpg' not in f:
                 continue
+            out_f.write(f + ' ' + str(label) + '\n')
 
-            bg_img = img[ymin:ymax, xmin:xmax]
-            cv2.imwrite(out_path + '/' + names[0] + names[1] + str(i) + '.jpg', bg_img)
-            i += 1
-            xmin += int(0.7 * width)
-            xmax += int(0.7 * width)
+
+def crop_image(src, out, width1=None, height1=None, width2=None, height2=None):
+    img = cv2.imread(src)
+    if width1 is None:
+        width1 = 0
+    if height1 is None:
+        height1 = 0
+    if width2 is None:
+        width2 = img.shape[1]
+    if height2 is None:
+        height2 = img.shape[0]
+    crop_img = img[height1:height2, width1:width2]
+    cv2.imwrite(out, crop_img)
 
 
 if __name__ == '__main__':
-    for sub_folder in os.listdir('E:/ped_data/background/batch1'):
-        add_file_name_suffix('E:/ped_data/background/batch1/' + sub_folder, 'bg')
-        # num = file_name.strip('FILE')
-        # crop_ped_background('D:/PedestrianDetection/xml/xml/batch1/FILE' + num,
-        #                          'E:/ped_data/frames/FILE' + num,
-        #                          'E:/ped_data/background/batch1/FILE' + num)
-    # num = '0006'
-    # video = cv2.VideoCapture('E:/ped_data/avi/FILE' + num + '.avi')
-    # readFrames(video, 'E:/ped_data/frames/FILE' + num, 'FILE' + num)
-    # crop_pedestrian_with_xml('D:/PedestrianDetection/xml/xml/batch1/FILE' + num,
-    #                         'E:/ped_data/frames/FILE' + num,
-    #                         'E:/ped_data/pimg_same_ratio/batch1/FILE' + num, True)
-
-    # merge_motion_from_far_mid_close('E:/video/merge1/merge_near',
-    #                                'E:/video/merge1/merge_mid',
-    #                                'E:/video/merge1/merge_far',
-    #                                'E:/video/merge1/merge')
-    # add_file_name_suffix('E:/video/inv_8s_merge_image', 'inv')
-    # inverse_image('E:/video/merge1/merge', 'E:/video/merge1/inv_merge_image')
-    # stitch_near_mid_far_motion('E:/video/merge/near', 'E:/video/merge/mid', 'E:/video/merge/far',
-    #                          'E:/video/merge/stitch')
-    # trim_evn_file_name('E:/video/merge/merge_far', 'E:/video/merge/far')
-    # batch_resize_image('E:/video/8s_merge_image/')
-    # extract_before_img('E:/video/merge_train_val_img/', 'E:/video/8s_merge_image/')
-    # batch_get_merge_motion_by_horizon_txt('E:/video/group/avi', 'E:/video/merge1', 'E:/video/group/horizon.txt')
-    # batch_get_merge_motion_by_car_id('D:/Research_IMPORTANT/video/feedback/output_avi',
-    #                                  'D:/Research_IMPORTANT/video/feedback/merge')
-    # merge_motion('D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/near/event2729_near.jpg',
-    #              'D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/mid/event2729_mid.jpg',
-    #              'D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/far/event2729_far.jpg',
-    #              'D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/merge.jpg')
-    # v = cv2.VideoCapture('D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/event2729.avi')
-    # crop_frames(v, 'D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/291', 290, 368, 'event2729')
-    # stitch_mean_frames(49, 'D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/290',
-    #                   'D:/Research_IMPORTANT/video/group/group1/baseline/2014.7-2014.11.22/1/near',
-    #                   'event2729', 'near')
-    # batchMakeMotionProfile('D:/Research_IMPORTANT/video/output/feedback', offset=150)
-    # extractFilesName('D:/Research_IMPORTANT/video/output/feedback/motion50',
-    #                  'D:/Research_IMPORTANT/video/output/feedback/filenames50.txt')
-    # batchResizeImage('D:/Research_IMPORTANT/video/output/train')
-    # deleteFiles('D:/Research_IMPORTANT/video/output/feedback', 'rear')
-    # findMissingLines('D:/Research_IMPORTANT/video/group/evn.txt',
-    #                  'D:/Research_IMPORTANT/video/group/labeled.txt',
-    #                  'D:/Research_IMPORTANT/video/group/missing.txt')
-    # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_test')
-    # batchRGB2Gray('D:/Research_IMPORTANT/video/output/gray_train')
-    # extractBeforeImg('D:/Research_IMPORTANT/video/output/feedback/motion50',
-    #                 'D:/Research_IMPORTANT/video/output/beforeimg')
-    # extractFilesName('D:/Research_IMPORTANT/video/output/speed',
-    #                  'D:/Research_IMPORTANT/video/output/speed_event.txt',
-    #                  '.txt')
-    # batch_blur_image('D:/Research_IMPORTANT/video/output/test')
+    inverse_image('E:/video/total_motion_profile/total', 'E:/video/total_motion_profile/total_inv')

@@ -6,13 +6,15 @@ import xlrd
 import xlwt
 import numpy as np
 import re
+import cv2
 
 
 def extract_file_name(path, output, key_word):
     f = open(output, 'w')
-    for file_name in os.listdir(path):
-        if key_word in file_name:
-            f.write(file_name + '\n')
+    for parent, dirnames, filenames in os.walk(path):
+        for file_name in filenames:
+            if key_word in file_name:
+                f.write(file_name + ' ' + parent[-1] + '\n')
 
 
 def extract_event_number(path, output):
@@ -96,10 +98,15 @@ def move_files(name_list, src_path, target_path):
 
 
 def trim_filename(src):
-    for filename in os.listdir(src):
-        arr = filename.split('Event')
-        if len(arr) > 1:
-            os.rename(src + '/' + filename, src + '/' + arr[1])
+    for parent, dirnames, filenames in os.walk(src):
+        for filename in filenames:
+            p = r'[0-9]+'
+            pattern = re.compile(p)
+            name = re.findall(pattern, filename)[0]
+            try:
+                os.rename(parent + '/' + filename, src + '/' + name + '.dce')
+            except WindowsError, e:
+                print e.message
 
 
 def extract_gps_data(src, target1, target2):
@@ -230,7 +237,8 @@ def travel_xml(path):
         ymin = bndbox.getElementsByTagName('ymin')[0].childNodes[0].data
         xmax = bndbox.getElementsByTagName('xmax')[0].childNodes[0].data
         ymax = bndbox.getElementsByTagName('ymax')[0].childNodes[0].data
-        box_list.append([name, int(xmin), int(ymin), int(xmax), int(ymax)])
+        if not 'ride' in name:
+            box_list.append([name, int(xmin), int(ymin), int(xmax), int(ymax)])
     return box_list
 
 
@@ -285,40 +293,152 @@ def match_label(src_path, label_path, output):
 def move_file(src, out):
     for parent, dirnames, filenames in os.walk(src):
         for filename in filenames:
-            if '.dce' in filename and 'DELETE' not in filename:
+            if '.jpg' in filename and 'DELETE' not in filename:
                 shutil.copyfile(parent + '/' + filename, out + '/' + filename)
+
+class kdata:
+    def __init__(self):
+        self.spd = ''
+        self.fwd = ''
+        self.lat = ''
+
+
+def stitch_kinematic_data(speed_folder, fwd_folder, lat_folder, out_path):
+    kdata_dict = dict()
+    p = r'[0-9]+'
+    pattern = re.compile(p)
+    for fname in os.listdir(speed_folder):
+        f = open(speed_folder + '/' + fname, 'r')
+        evn = pattern.findall(fname)[0]
+        kd = kdata()
+        for line in f.readlines():
+            kd.spd += line.strip('\n') + ','
+        kdata_dict[evn] = kd
+
+    for fname in os.listdir(fwd_folder):
+        f = open(fwd_folder + '/' + fname, 'r')
+        evn = pattern.findall(fname)[0]
+        if evn not in kdata_dict:
+            continue
+        kd = kdata_dict[evn]
+        for line in f.readlines():
+            kd.fwd += line.strip('\n') + ','
+        kdata_dict[evn] = kd
+
+    for fname in os.listdir(lat_folder):
+        f = open(lat_folder + '/' + fname, 'r')
+        evn = pattern.findall(fname)[0]
+        if evn not in kdata_dict:
+            continue
+        kd = kdata_dict[evn]
+        for line in f.readlines():
+            kd.lat += line.strip('\n') + ','
+        kdata_dict[evn] = kd
+
+    out = open(out_path, 'w')
+    for key, kd in kdata_dict.items():
+        out.write(key + ',' + kd.spd + ',' + kd.fwd + ',' + kd.lat + '\n')
+
+
+def find_missing_files(name_list_path, file_path, out, suffix='.jpg'):
+    """
+    Find missing files in motion images according to event number list
+    :param name_list_path: path of name list file 
+    :param file_path: folder path of videos or dces or motion images
+                       OR name list file of event number
+    :param out: output file path of missing file name list
+    :param suffix: suffix of target file, like .dce, .jpg or .txt
+    :return: 
+    """
+
+    path1 = name_list_path
+    path2 = file_path
+    f = open(path1, 'r')
+    name_list = []
+    for line in f.readlines():
+        name_list.append(line.strip())
+    f.close()
+
+    file_list = []
+    if os.path.isdir(path2):
+        for file_name in os.listdir(path2):
+            file_list.append(file_name.strip(suffix))
+    elif os.path.exists(path2):
+        with open(path2, 'r') as f2:
+            for line in f2.readlines():
+                pt = re.compile(r'[0-9]+')
+                evn = pt.findall(line)[0]
+                file_list.append(evn)
+
+    missing = []
+    for name in name_list:
+        if name not in file_list:
+            missing.append(name)
+
+    with open(out, 'w') as o:
+        for evn in missing:
+            o.write(evn + '\n')
+
+
+def move_files_with_name_list(src, out, name_list_file, suffix='.jpg'):
+    """
+    Move files from src to out according to the name list file
+    Example:
+    move_files_with_name_list('E:/video/categorization/avi/road_type/highway/',
+                              'E:/car_speed_reconstruction/success_video',
+                              'E:/car_speed_reconstruction/filelist.txt',
+                              '_front.avi', '.jpg')
+    :param src: source path  
+    :param out: output path
+    :param name_list_file: file path of name list 
+    :param suffix: file name suffix
+    :return: None
+    """
+    nlf = open(name_list_file, 'r')
+    name_list = []
+    for line in nlf.readlines():
+        name_list.append(line.strip() + suffix)
+        name_list.append(line.strip() + 'inv' + suffix)
+
+    for parent, dirnames, filenames in os.walk(src):
+        for f in filenames:
+            if f in name_list:
+                shutil.copyfile(parent + '/' + f, out + '/' + f)
+
+
+def prepare_data_for_digits():
+    # Prepare data for digits
+    non_conflict_file = 'E:/video/categorization/motion_profile/crash_type/nonconflict.txt'
+    critical_incident_file = 'E:/video/categorization/motion_profile/danger_level/critical-incident.txt'
+    near_crash_file = 'E:/video/categorization/motion_profile/danger_level/near-crash.txt'
+    crash_file = 'E:/video/categorization/motion_profile/danger_level/crash.txt'
+    endwise_file = 'E:/video/categorization/motion_profile/crash_type/endwise.txt'
+    src_path = 'E:/video/total_motion_profile/total_inv'
+    tmp = 'E:/video/total_motion_profile/tmp'
+    out_path = 'E:/video/total_motion_profile/endwise_12s_for_digits/'
+
+    move_files_with_name_list(src_path, tmp, endwise_file, '.jpg')
+    move_files_with_name_list(tmp, out_path + '/1', critical_incident_file, '.jpg')
+    move_files_with_name_list(tmp, out_path + '/2', near_crash_file, '.jpg')
+    move_files_with_name_list(tmp, out_path + '/3', crash_file, '.jpg')
+    move_files_with_name_list(src_path, out_path + '/0', non_conflict_file, '.jpg')
+
+
+def extract_pedestrian_with_xml():
+    xml_folder = 'E:/ped_data/xml/0018-00216-xml/CCHN_0018_229730_46_130718_0907_00216_Front/'
+    img_folder = 'E:/ped_data/xml/0018-00216-frame/'
+    out_folder = 'E:/ped_data/xml/0018-00216-out/'
+    for f in os.listdir(xml_folder):
+        num = 0
+        box_list = travel_xml(xml_folder + f)
+        img = cv2.imread(img_folder + f.strip('.xml') + '.jpg')
+        for l in box_list:
+            patch = img[l[2]:l[4], l[1]:l[3], :]
+            cv2.imwrite(out_folder + f + str(num) + '.jpg', patch)
+            num += 1
 
 
 if __name__ == '__main__':
-    # move_file('E:/video/group/group3/feedback/2015.6.1-2015.8.23', 'E:/video/dce')
-    # match_label('E:/video/merge/stitch/', 'E:/video/merge/label.txt', 'E:/video/merge/stitch_label.txt')
-    # extract_horizon('E:/video/group/group3', 'E:/video/group/group3/horizon.txt')
-    travel_xml('D:/PedestrianDetection/xml/xml/batch1/FILE0006/FILE0006MOV65.xml')
-    # read_risk_level('D:/Research_IMPORTANT/data/risk.txt',
-    #                 'D:/Research_IMPORTANT/data/risk_level.txt')
-    # matching_label('D:/Research_IMPORTANT/video/feedback/output_number.txt',
-    #                'D:/Research_IMPORTANT/video/output/train_val.txt',
-    #                'D:/Research_IMPORTANT/video/feedback/train_val.txt')
-    # move_files('D:/Research_IMPORTANT/video/output/event.txt',
-    #           'D:/Research_IMPORTANT/data/video/unclassified',
-    #           'D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA1')
-    # trim_filename('D:/Research_IMPORTANT/video/output/FINAL_TRAIN_DATA1')
-    # write_excel_file('D:/Research_IMPORTANT/video/output/direction',
-    #                  'D:/Research_IMPORTANT/video/output/direction.xls',
-    #                  'Direction')
-    # extract_gps_data('D:/Research_IMPORTANT/video/output/gps',
-    #                  'D:/Research_IMPORTANT/video/output/gps_lon',
-    #                  'D:/Research_IMPORTANT/video/output/gps_lat')
-    # extract_force_data('D:/Research_IMPORTANT/video/output/force',
-    #                    'D:/Research_IMPORTANT/video/output/fwd_force',
-    #                    'D:/Research_IMPORTANT/video/output/lat_force')
-    # change_label('D:/Research_IMPORTANT/video/labels/3label_val.tmp1.txt',
-    #              'D:/Research_IMPORTANT/video/labels/3label_val.txt',
-    #              '3', '2')
-    # extract_road_level('D:/Research_IMPORTANT/video/roadlevel/road.txt',
-    #                    'D:/Research_IMPORTANT/video/output/address.txt',
-    #                    'D:/Research_IMPORTANT/video/output/road_level.txt')
-    # parse_pred('D:/bishe/paper/experiment/val.txt', 'D:/bishe/paper/experiment/pred.txt')
-    # extract_event_number('D:/Research_IMPORTANT/video/group', 'D:/Research_IMPORTANT/video/evn.txt')
-    # extract_file_name('D:/Research_IMPORTANT/video/feedback/merge/merge',
-    #                   'D:/Research_IMPORTANT/video/feedback/output_number.txt', '.jpg')
+    find_missing_files('E:/video/weather/curr_name_list.txt',
+                       'E:/video/weather/tmp_name_list.txt',
+                       'E:/video/weather/missing_name_list.txt')
