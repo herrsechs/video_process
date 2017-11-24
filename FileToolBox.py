@@ -438,7 +438,17 @@ def extract_pedestrian_with_xml():
             num += 1
 
 
+def extract_xml_bbox():
+    annotation_path = "D:/course/pattern_recognition/assignment2/Annotations"
+    with open("D:/course/pattern_recognition/assignment2/info.txt", 'w') as out:
+        for f in os.listdir(annotation_path):
+            box_list = travel_xml(os.path.join(annotation_path, f))
+            if box_list is None:
+                continue
+            out.write('images/' + f.strip('.xml') + '.jpg ' + str(len(box_list)))
+            for box in box_list:
+                out.write(' ' + str(box[1]) + ' ' + str(box[2]) + ' ' + str(box[3]) + ' ' + str(box[4]))
+            out.write('\n')
+
 if __name__ == '__main__':
-    find_missing_files('E:/video/weather/curr_name_list.txt',
-                       'E:/video/weather/tmp_name_list.txt',
-                       'E:/video/weather/missing_name_list.txt')
+    pass
